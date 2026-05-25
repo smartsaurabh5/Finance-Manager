@@ -3,6 +3,7 @@ package com.finance.manager.dto;
 import com.finance.manager.entity.CategoryType;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -16,6 +17,7 @@ public class TransactionRequest {
     private String category;
     private Long categoryId;
     private CategoryType type;
+    @Size(max = 255, message = "Description cannot exceed 255 characters")
     private String description;
 
     public BigDecimal getAmount() {

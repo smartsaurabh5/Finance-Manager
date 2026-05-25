@@ -3,7 +3,9 @@ package com.finance.manager.entity;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "categories")
+@Table(name = "categories", indexes = {
+        @Index(name = "idx_categories_user_name", columnList = "user_id,name")
+})
 public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

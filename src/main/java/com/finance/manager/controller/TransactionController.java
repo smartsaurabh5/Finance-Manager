@@ -1,11 +1,14 @@
 package com.finance.manager.controller;
 
+import com.finance.manager.dto.PageResponse;
 import com.finance.manager.dto.TransactionRequest;
 import com.finance.manager.dto.TransactionResponse;
 import com.finance.manager.entity.CategoryType;
 import com.finance.manager.security.CustomUserDetails;
 import com.finance.manager.service.TransactionService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,14 +37,46 @@ public class TransactionController {
     }
 
     @GetMapping
-    public ResponseEntity<Map<String, List<TransactionResponse>>> getTransactions(
+    public ResponseEntity<Map<String, Object>> getTransactions(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) CategoryType type,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(Map.of("transactions",
-                transactionService.getTransactions(userDetails.getUser(), startDate, endDate, categoryId, type)));
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        PageResponse<TransactionResponse> response = transactionService.getTransactions(userDetails.getUser(),
+                startDate, endDate, categoryId, type, PageRequest.of(Math.max(page, 0), safeSize,
+                        Sort.by(Sort.Direction.DESC, "date").and(Sort.by(Sort.Direction.DESC, "id"))));
+        return ResponseEntity.ok(Map.of(
+                "transactions", response.getContent(),
+                "page", response.getPage(),
+                "size", response.getSize(),
+                "totalElements", response.getTotalElements(),
+                "totalPages", response.getTotalPages(),
+                "last", response.isLast()));
+    }
+
+    @GetMapping("/page")
+    public ResponseEntity<PageResponse<TransactionResponse>> getTransactionsPage(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) CategoryType type,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        return ResponseEntity.ok(transactionService.getTransactions(userDetails.getUser(), startDate, endDate,
+                categoryId, type, PageRequest.of(Math.max(page, 0), safeSize,
+                        Sort.by(Sort.Direction.DESC, "date").and(Sort.by(Sort.Direction.DESC, "id")))));
+    }
+
+    @GetMapping("/recent")
+    public ResponseEntity<Map<String, List<TransactionResponse>>> getRecentTransactions(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(Map.of("transactions", transactionService.getRecentTransactions(userDetails.getUser())));
     }
 
     @GetMapping("/{id}")

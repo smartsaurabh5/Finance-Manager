@@ -11,10 +11,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AuthService {
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final int LOCK_MINUTES = 15;
+
 
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
@@ -24,6 +29,38 @@ public class AuthService {
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.passwordEncoder = passwordEncoder;
+    }
+
+    @Transactional
+    public void recordLoginSuccess(String username) {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            user.setFailedLoginAttempts(0);
+            user.setLockedUntil(null);
+            user.setLastLoginAt(LocalDateTime.now());
+            user.setLastActivityAt(LocalDateTime.now());
+            userRepository.save(user);
+        });
+    }
+
+    @Transactional
+    public void recordLoginFailure(String username) {
+        Optional<User> optionalUser = userRepository.findByUsername(username);
+        if (optionalUser.isEmpty()) {
+            return;
+        }
+        User user = optionalUser.get();
+        int attempts = user.getFailedLoginAttempts() + 1;
+        user.setFailedLoginAttempts(attempts);
+        if (attempts >= MAX_FAILED_ATTEMPTS) {
+            user.setLockedUntil(LocalDateTime.now().plusMinutes(LOCK_MINUTES));
+        }
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void recordActivity(User user) {
+        user.setLastActivityAt(LocalDateTime.now());
+        userRepository.save(user);
     }
 
     @Transactional

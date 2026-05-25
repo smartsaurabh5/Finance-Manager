@@ -22,6 +22,19 @@ public class User {
 
     private String phoneNumber;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role = UserRole.USER;
+
+    @Column(nullable = false)
+    private int failedLoginAttempts = 0;
+
+    private LocalDateTime lockedUntil;
+
+    private LocalDateTime lastLoginAt;
+
+    private LocalDateTime lastActivityAt;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
@@ -75,6 +88,46 @@ public class User {
         this.phoneNumber = phoneNumber;
     }
 
+    public UserRole getRole() {
+        return role;
+    }
+
+    public void setRole(UserRole role) {
+        this.role = role;
+    }
+
+    public int getFailedLoginAttempts() {
+        return failedLoginAttempts;
+    }
+
+    public void setFailedLoginAttempts(int failedLoginAttempts) {
+        this.failedLoginAttempts = failedLoginAttempts;
+    }
+
+    public LocalDateTime getLockedUntil() {
+        return lockedUntil;
+    }
+
+    public void setLockedUntil(LocalDateTime lockedUntil) {
+        this.lockedUntil = lockedUntil;
+    }
+
+    public LocalDateTime getLastLoginAt() {
+        return lastLoginAt;
+    }
+
+    public void setLastLoginAt(LocalDateTime lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
+    }
+
+    public LocalDateTime getLastActivityAt() {
+        return lastActivityAt;
+    }
+
+    public void setLastActivityAt(LocalDateTime lastActivityAt) {
+        this.lastActivityAt = lastActivityAt;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -93,6 +146,11 @@ public class User {
         private String password;
         private String fullName;
         private String phoneNumber;
+        private UserRole role = UserRole.USER;
+        private int failedLoginAttempts = 0;
+        private LocalDateTime lockedUntil;
+        private LocalDateTime lastLoginAt;
+        private LocalDateTime lastActivityAt;
         private LocalDateTime createdAt;
 
         UserBuilder() {
@@ -123,13 +181,24 @@ public class User {
             return this;
         }
 
+        public User.UserBuilder role(final UserRole role) {
+            this.role = role;
+            return this;
+        }
+
         public User.UserBuilder createdAt(final LocalDateTime createdAt) {
             this.createdAt = createdAt;
             return this;
         }
 
         public User build() {
-            return new User(this.id, this.username, this.password, this.fullName, this.phoneNumber, this.createdAt);
+            User user = new User(this.id, this.username, this.password, this.fullName, this.phoneNumber, this.createdAt);
+            user.setRole(this.role);
+            user.setFailedLoginAttempts(this.failedLoginAttempts);
+            user.setLockedUntil(this.lockedUntil);
+            user.setLastLoginAt(this.lastLoginAt);
+            user.setLastActivityAt(this.lastActivityAt);
+            return user;
         }
 
         public String toString() {

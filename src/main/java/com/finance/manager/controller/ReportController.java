@@ -2,6 +2,8 @@ package com.finance.manager.controller;
 
 import com.finance.manager.security.CustomUserDetails;
 import com.finance.manager.service.ReportService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,5 +33,16 @@ public class ReportController {
     public ResponseEntity<Map<String, Object>> getYearlyReport(@PathVariable int year,
                                                                @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(reportService.getYearlyReport(userDetails.getUser(), year));
+    }
+
+    @GetMapping(value = "/monthly/{year}/{month}/export.csv", produces = "text/csv")
+    public ResponseEntity<String> exportMonthlyCsv(@PathVariable int year,
+                                                   @PathVariable int month,
+                                                   @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=finance-report-" + year + "-" + month + ".csv")
+                .body(reportService.exportMonthlyCsv(userDetails.getUser(), year, month));
     }
 }

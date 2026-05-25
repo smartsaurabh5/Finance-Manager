@@ -1,5 +1,6 @@
 package com.finance.manager.controller;
 
+import com.finance.manager.dto.DashboardSummaryResponse;
 import com.finance.manager.entity.User;
 import com.finance.manager.security.CustomUserDetails;
 import com.finance.manager.service.ReportService;
@@ -11,17 +12,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.util.Map;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class ReportControllerTest {
+class DashboardControllerTest {
     @Mock
     ReportService reportService;
     @InjectMocks
-    ReportController reportController;
+    DashboardController dashboardController;
 
     User user;
     CustomUserDetails userDetails;
@@ -37,22 +38,12 @@ class ReportControllerTest {
     }
 
     @Test
-    void getMonthlyReportReturnsReport() {
-        Map<String, Object> report = Map.of("netSavings", BigDecimal.TEN);
-        when(reportService.getMonthlyReport(user, 2026, 5)).thenReturn(report);
+    void getSummaryReturnsDashboardSummary() {
+        DashboardSummaryResponse summary = new DashboardSummaryResponse(BigDecimal.TEN, BigDecimal.ONE, new BigDecimal("9"), List.of());
+        when(reportService.getDashboardSummary(user)).thenReturn(summary);
 
-        var response = reportController.getMonthlyReport(2026, 5, userDetails);
+        var response = dashboardController.getSummary(userDetails);
 
-        assertThat(response.getBody()).isEqualTo(report);
-    }
-
-    @Test
-    void exportMonthlyCsvReturnsAttachment() {
-        when(reportService.exportMonthlyCsv(user, 2026, 5)).thenReturn("id,date\n");
-
-        var response = reportController.exportMonthlyCsv(2026, 5, userDetails);
-
-        assertThat(response.getBody()).isEqualTo("id,date\n");
-        assertThat(response.getHeaders().getFirst("Content-Disposition")).contains("finance-report-2026-5.csv");
+        assertThat(response.getBody()).isEqualTo(summary);
     }
 }

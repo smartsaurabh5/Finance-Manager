@@ -1,11 +1,15 @@
 package com.finance.manager.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class SavingsGoalRequest {
+    @NotBlank(message = "Goal name is required")
+    @Size(max = 100, message = "Goal name cannot exceed 100 characters")
     private String goalName;
 
     @Positive(message = "Target amount must be positive")

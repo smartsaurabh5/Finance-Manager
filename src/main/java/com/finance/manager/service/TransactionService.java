@@ -1,5 +1,6 @@
 package com.finance.manager.service;
 
+import com.finance.manager.dto.PageResponse;
 import com.finance.manager.dto.TransactionRequest;
 import com.finance.manager.dto.TransactionResponse;
 import com.finance.manager.entity.Category;
@@ -10,6 +11,8 @@ import com.finance.manager.exception.ForbiddenException;
 import com.finance.manager.exception.ResourceNotFoundException;
 import com.finance.manager.repository.CategoryRepository;
 import com.finance.manager.repository.TransactionRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +31,36 @@ public class TransactionService {
     }
 
     public List<TransactionResponse> getTransactions(User user, LocalDate startDate, LocalDate endDate, Long categoryId, CategoryType type) {
+        validateFilters(startDate, endDate, categoryId, type);
+        return findTransactions(user, startDate, endDate, categoryId, type).stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    public PageResponse<TransactionResponse> getTransactions(User user, LocalDate startDate, LocalDate endDate,
+                                                             Long categoryId, CategoryType type, Pageable pageable) {
+        validateFilters(startDate, endDate, categoryId, type);
+        Page<Transaction> page;
+        if (categoryId != null && startDate != null && endDate != null) {
+            page = transactionRepository.findByUserAndCategoryAndDateBetween(user, getCategoryById(categoryId, user), startDate, endDate, pageable);
+        } else if (categoryId != null) {
+            page = transactionRepository.findByUserAndCategory(user, getCategoryById(categoryId, user), pageable);
+        } else if (type != null && startDate != null && endDate != null) {
+            page = transactionRepository.findByUserAndCategoryTypeAndDateBetween(user, type, startDate, endDate, pageable);
+        } else if (type != null) {
+            page = transactionRepository.findByUserAndCategoryType(user, type, pageable);
+        } else if (startDate != null && endDate != null) {
+            page = transactionRepository.findByUserAndDateBetween(user, startDate, endDate, pageable);
+        } else {
+            page = transactionRepository.findByUser(user, pageable);
+        }
+        return new PageResponse<>(page.getContent().stream().map(this::mapToResponse).toList(),
+                page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), page.isLast());
+    }
+
+    public List<TransactionResponse> getRecentTransactions(User user) {
+        return transactionRepository.findTop5ByUserOrderByDateDesc(user).stream().map(this::mapToResponse).toList();
+    }
+
+    private List<Transaction> findTransactions(User user, LocalDate startDate, LocalDate endDate, Long categoryId, CategoryType type) {
         if (categoryId != null && type != null) {
             throw new IllegalArgumentException("Filter by either categoryId or type, not both");
         }
@@ -45,7 +78,19 @@ public class TransactionService {
         } else {
             transactions = transactionRepository.findByUserOrderByDateDesc(user);
         }
-        return transactions.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return transactions;
+    }
+
+    private void validateFilters(LocalDate startDate, LocalDate endDate, Long categoryId, CategoryType type) {
+        if (categoryId != null && type != null) {
+            throw new IllegalArgumentException("Filter by either categoryId or type, not both");
+        }
+        if ((startDate == null) != (endDate == null)) {
+            throw new IllegalArgumentException("Both startDate and endDate are required for date filtering");
+        }
+        if (startDate != null && startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("startDate must be before or equal to endDate");
+        }
     }
 
     public TransactionResponse getTransaction(Long id, User user) {
@@ -59,6 +104,9 @@ public class TransactionService {
         }
         if (request.getDate() == null) {
             throw new IllegalArgumentException("Date is required");
+        }
+        if (request.getDate().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Date cannot be in the future");
         }
         Transaction transaction = new Transaction();
         transaction.setAmount(request.getAmount());
