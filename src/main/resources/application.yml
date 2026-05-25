@@ -1,15 +1,20 @@
 spring:
   application:
     name: FinanceManager
+
   datasource:
     url: ${DATABASE_URL:jdbc:h2:mem:financedb}
     driverClassName: ${DATABASE_DRIVER:org.h2.Driver}
     username: ${DATABASE_USERNAME:sa}
     password: ${DATABASE_PASSWORD:password}
+
   h2:
     console:
       enabled: true
       path: /h2-console
+      settings:
+        web-allow-others: true
+
   jpa:
     database-platform: ${DATABASE_PLATFORM:org.hibernate.dialect.H2Dialect}
     hibernate:
@@ -19,20 +24,9 @@ spring:
       hibernate:
         format_sql: true
 
-# PostgreSQL config for Render (commented out)
-# spring:
-#   datasource:
-#     url: ${DATABASE_URL}
-#     username: ${DATABASE_USERNAME}
-#     password: ${DATABASE_PASSWORD}
-#     driverClassName: org.postgresql.Driver
-#   jpa:
-#     database-platform: org.hibernate.dialect.PostgreSQLDialect
-#     hibernate:
-#       ddl-auto: update
-
 server:
   port: ${PORT:8080}
+
   servlet:
     session:
       cookie:
@@ -43,5 +37,6 @@ server:
 springdoc:
   api-docs:
     path: /v3/api-docs
+
   swagger-ui:
     path: /swagger-ui.html
