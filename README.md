@@ -71,6 +71,24 @@ curl -i -c cookies.txt -X POST http://localhost:8080/api/auth/login \
 curl -b cookies.txt http://localhost:8080/api/transactions
 ```
 
+Logout with the session cookie:
+
+```bash
+curl -i -b cookies.txt -X POST http://localhost:8080/api/auth/logout
+```
+
+On Render, replace the host with your deployed URL:
+
+```bash
+curl -i -c cookies.txt -X POST https://YOUR-APP.onrender.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"aakash@example.com","password":"Strong123","rememberMe":true}'
+
+curl -i -b cookies.txt -X POST https://YOUR-APP.onrender.com/api/auth/logout
+```
+
+This backend does not issue or validate JWT bearer tokens. An `Authorization: Bearer ...` header will only work after adding a JWT filter/token service. For the current implementation, the authenticated credential is the `JSESSIONID` cookie.
+
 Security notes:
 
 - Cookies are HttpOnly and configurable with `COOKIE_SECURE` and `COOKIE_SAME_SITE`.
@@ -88,6 +106,7 @@ The `users` table must contain these account-lockout columns:
 failed_login_attempts integer not null default 0,
 locked_until timestamp null,
 last_login_at timestamp null,
+last_logout_at timestamp null,
 last_activity_at timestamp null
 ```
 

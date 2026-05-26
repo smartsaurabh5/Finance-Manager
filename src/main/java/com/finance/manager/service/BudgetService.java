@@ -34,7 +34,13 @@ public class BudgetService {
 
     public List<BudgetResponse> getMonthlyBudgets(User user, int year, int month) {
         YearMonth yearMonth = validateMonth(year, month);
-        return budgetRepository.findByUserAndMonth(user, yearMonth).stream().map(this::mapToResponse).toList();
+        if (user == null || user.getId() == null) {
+            return List.of();
+        }
+        String budgetMonth = formatBudgetMonth(yearMonth);
+        return budgetRepository.findByUserIdAndBudgetMonth(user.getId(), budgetMonth).stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     @Transactional
@@ -45,7 +51,9 @@ public class BudgetService {
         if (category.getType() != CategoryType.EXPENSE) {
             throw new IllegalArgumentException("Budgets can only be assigned to expense categories");
         }
-        Budget budget = budgetRepository.findByUserAndCategoryAndMonth(user, category, month).orElseGet(Budget::new);
+        String budgetMonth = formatBudgetMonth(month);
+        Budget budget = budgetRepository.findByUserIdAndCategoryIdAndBudgetMonth(user.getId(), category.getId(), budgetMonth)
+                .orElseGet(Budget::new);
         budget.setUser(user);
         budget.setCategory(category);
         budget.setMonth(month);
@@ -82,5 +90,9 @@ public class BudgetService {
             throw new IllegalArgumentException("Year must be between 2000 and " + (YearMonth.now().getYear() + 1));
         }
         return YearMonth.of(year, month);
+    }
+
+    private String formatBudgetMonth(YearMonth month) {
+        return String.format("%04d-%02d", month.getYear(), month.getMonthValue());
     }
 }

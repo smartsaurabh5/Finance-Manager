@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -81,5 +82,45 @@ class AuthServiceTest {
         assertThat(user.getFailedLoginAttempts()).isEqualTo(5);
         assertThat(user.getLockedUntil()).isNotNull();
         verify(userRepository).save(user);
+    }
+
+    @Test
+    void recordActivityUpdatesFreshUserWithoutOverwritingLoginFields() {
+        User stalePrincipal = new User();
+        stalePrincipal.setId(1L);
+        stalePrincipal.setLastLoginAt(null);
+        stalePrincipal.setLockedUntil(null);
+
+        LocalDateTime loginAt = LocalDateTime.of(2026, 5, 26, 9, 30);
+        LocalDateTime lockedUntil = LocalDateTime.of(2026, 5, 26, 9, 45);
+        User managedUser = new User();
+        managedUser.setId(1L);
+        managedUser.setLastLoginAt(loginAt);
+        managedUser.setLockedUntil(lockedUntil);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(managedUser));
+
+        authService.recordActivity(stalePrincipal);
+
+        assertThat(managedUser.getLastActivityAt()).isNotNull();
+        assertThat(managedUser.getLastLoginAt()).isEqualTo(loginAt);
+        assertThat(managedUser.getLockedUntil()).isEqualTo(lockedUntil);
+    }
+
+    @Test
+    void recordLogoutUpdatesFreshUserLogoutTime() {
+        User stalePrincipal = new User();
+        stalePrincipal.setId(1L);
+        User managedUser = new User();
+        managedUser.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(managedUser));
+
+        authService.recordLogout(stalePrincipal);
+
+        assertThat(managedUser.getLastLogoutAt()).isNotNull();
+    }
+
+    @Test
+    void recordLogoutIgnoresNullUser() {
+        authService.recordLogout(null);
     }
 }

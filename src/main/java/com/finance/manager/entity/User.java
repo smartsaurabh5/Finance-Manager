@@ -36,6 +36,9 @@ public class User {
     @Column(name = "last_login_at", columnDefinition = "timestamp")
     private LocalDateTime lastLoginAt;
 
+    @Column(name = "last_logout_at", columnDefinition = "timestamp")
+    private LocalDateTime lastLogoutAt;
+
     @Column(name = "last_activity_at", columnDefinition = "timestamp")
     private LocalDateTime lastActivityAt;
 
@@ -125,6 +128,14 @@ public class User {
         this.lastLoginAt = lastLoginAt;
     }
 
+    public LocalDateTime getLastLogoutAt() {
+        return lastLogoutAt;
+    }
+
+    public void setLastLogoutAt(LocalDateTime lastLogoutAt) {
+        this.lastLogoutAt = lastLogoutAt;
+    }
+
     public LocalDateTime getLastActivityAt() {
         return lastActivityAt;
     }
@@ -155,6 +166,7 @@ public class User {
         private int failedLoginAttempts = 0;
         private LocalDateTime lockedUntil;
         private LocalDateTime lastLoginAt;
+        private LocalDateTime lastLogoutAt;
         private LocalDateTime lastActivityAt;
         private LocalDateTime createdAt;
 
@@ -211,6 +223,11 @@ public class User {
             return this;
         }
 
+        public User.UserBuilder lastLogoutAt(final LocalDateTime lastLogoutAt) {
+            this.lastLogoutAt = lastLogoutAt;
+            return this;
+        }
+
         public User.UserBuilder lastActivityAt(final LocalDateTime lastActivityAt) {
             this.lastActivityAt = lastActivityAt;
             return this;
@@ -222,6 +239,7 @@ public class User {
             user.setFailedLoginAttempts(this.failedLoginAttempts);
             user.setLockedUntil(this.lockedUntil);
             user.setLastLoginAt(this.lastLoginAt);
+            user.setLastLogoutAt(this.lastLogoutAt);
             user.setLastActivityAt(this.lastActivityAt);
             return user;
         }

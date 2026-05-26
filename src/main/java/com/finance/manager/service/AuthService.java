@@ -59,8 +59,22 @@ public class AuthService {
 
     @Transactional
     public void recordActivity(User user) {
-        user.setLastActivityAt(LocalDateTime.now());
-        userRepository.save(user);
+        if (user == null || user.getId() == null) {
+            return;
+        }
+        userRepository.findById(user.getId()).ifPresent(managedUser ->
+                managedUser.setLastActivityAt(LocalDateTime.now())
+        );
+    }
+
+    @Transactional
+    public void recordLogout(User user) {
+        if (user == null || user.getId() == null) {
+            return;
+        }
+        userRepository.findById(user.getId()).ifPresent(managedUser ->
+                managedUser.setLastLogoutAt(LocalDateTime.now())
+        );
     }
 
     @Transactional

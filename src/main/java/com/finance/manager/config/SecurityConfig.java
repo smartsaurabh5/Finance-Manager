@@ -1,7 +1,9 @@
 package com.finance.manager.config;
 
 import com.finance.manager.security.CustomUserDetailsService;
+import com.finance.manager.security.CustomUserDetails;
 import com.finance.manager.security.SessionActivityFilter;
+import com.finance.manager.service.AuthService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,11 +14,12 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
+import org.springframework.security.web.authentication.logout.LogoutHandler;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.web.cors.CorsConfiguration;
@@ -32,13 +35,16 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final SessionActivityFilter sessionActivityFilter;
+    private final AuthService authService;
     private final List<String> allowedOrigins;
 
     public SecurityConfig(CustomUserDetailsService userDetailsService,
                           SessionActivityFilter sessionActivityFilter,
+                          AuthService authService,
                           @Value("${app.cors.allowed-origins:http://localhost:3000}") List<String> allowedOrigins) {
         this.userDetailsService = userDetailsService;
         this.sessionActivityFilter = sessionActivityFilter;
+        this.authService = authService;
         this.allowedOrigins = allowedOrigins;
     }
 
@@ -56,6 +62,11 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 .sessionFixation(sessionFixation -> sessionFixation.changeSessionId())
+                .invalidSessionStrategy((request, response) -> {
+                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"message\":\"Session expired or invalid\"}");
+                })
                 .maximumSessions(3)
             )
             .logout(logout -> logout
@@ -63,6 +74,9 @@ public class SecurityConfig {
                 .invalidateHttpSession(true)
                 .clearAuthentication(true)
                 .deleteCookies("JSESSIONID")
+                .addLogoutHandler(logoutHandler())
+                .logoutSuccessHandler(logoutSuccessHandler())
+                .permitAll()
             )
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
@@ -71,6 +85,24 @@ public class SecurityConfig {
             .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
 
         return http.build();
+    }
+
+    @Bean
+    public LogoutHandler logoutHandler() {
+        return (request, response, authentication) -> {
+            if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
+                authService.recordLogout(userDetails.getUser());
+            }
+        };
+    }
+
+    @Bean
+    public LogoutSuccessHandler logoutSuccessHandler() {
+        return (request, response, authentication) -> {
+            response.setStatus(HttpStatus.OK.value());
+            response.setContentType("application/json");
+            response.getWriter().write("{\"message\":\"Logout successful\"}");
+        };
     }
 
     @Bean

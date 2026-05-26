@@ -20,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 
@@ -59,7 +58,7 @@ class BudgetServiceTest {
         request.setLimitAmount(new BigDecimal("1000.00"));
 
         when(categoryRepository.findByIdAndUser(2L, user)).thenReturn(Optional.of(food));
-        when(budgetRepository.findByUserAndCategoryAndMonth(user, food, YearMonth.of(2026, 5))).thenReturn(Optional.empty());
+        when(budgetRepository.findByUserIdAndCategoryIdAndBudgetMonth(1L, 2L, "2026-05")).thenReturn(Optional.empty());
         when(budgetRepository.save(org.mockito.ArgumentMatchers.any(Budget.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(transactionRepository.findByUserAndCategoryAndDateBetweenOrderByDateDesc(user, food,
                 LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)))
@@ -69,6 +68,25 @@ class BudgetServiceTest {
 
         assertThat(response.getSpentAmount()).isEqualByComparingTo("250.00");
         assertThat(response.getRemainingAmount()).isEqualByComparingTo("750.00");
+    }
+
+    @Test
+    void getMonthlyBudgetsUsesZeroPaddedBudgetMonthAndReturnsEmptyListWhenNoneFound() {
+        when(budgetRepository.findByUserIdAndBudgetMonth(1L, "2026-05")).thenReturn(List.of());
+
+        List<BudgetResponse> response = budgetService.getMonthlyBudgets(user, 2026, 5);
+
+        assertThat(response).isEmpty();
+        verify(budgetRepository).findByUserIdAndBudgetMonth(1L, "2026-05");
+    }
+
+    @Test
+    void getMonthlyBudgetsReturnsEmptyListForMissingUserId() {
+        User userWithoutId = new User();
+
+        List<BudgetResponse> response = budgetService.getMonthlyBudgets(userWithoutId, 2026, 5);
+
+        assertThat(response).isEmpty();
     }
 
     @Test
@@ -111,7 +129,7 @@ class BudgetServiceTest {
         Budget budget = new Budget();
         budget.setUser(owner);
         budget.setCategory(food);
-        budget.setMonth(YearMonth.of(2026, 5));
+        budget.setMonth(java.time.YearMonth.of(2026, 5));
         budget.setLimitAmount(BigDecimal.TEN);
         return budget;
     }
