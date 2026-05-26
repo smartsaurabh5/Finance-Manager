@@ -1,10 +1,10 @@
 # Personal Finance Manager Backend
 
-Production-ready, beginner-friendly REST API for managing personal finances with Java 17, Spring Boot 3.2.5, Spring Security sessions, JPA, H2 for local development, and PostgreSQL for deployment.
+Production-ready, beginner-friendly REST API for managing personal finances with Java 17, Spring Boot 3.2.5, Spring Security JWT authentication, JPA, H2 for local development, and PostgreSQL for deployment.
 
 ## Features
 
-- Session-based authentication with BCrypt, HttpOnly cookies, session fixation protection, logout invalidation, activity tracking, remember-me session duration, and account lockout after repeated failed logins.
+- JWT Bearer authentication with BCrypt, stateless protected APIs, activity tracking, remember-me token duration, and account lockout after repeated failed logins.
 - User-scoped categories, transactions, savings goals, reports, dashboard summary, recent transactions, and monthly budgets.
 - Validation on request DTOs, global exception handling, consistent error response shape, duplicate category conflict handling, and protection against deleting categories used by transactions.
 - Transaction filtering, pagination, sorting, and future-date prevention.
@@ -54,46 +54,48 @@ H2 defaults:
 
 1. Register with `POST /api/auth/register`.
 2. Login with `POST /api/auth/login`.
-3. Use the returned `JSESSIONID` cookie on protected APIs.
+3. Use the returned JWT access token on protected APIs.
 4. Logout with `POST /api/auth/logout`.
 
 Example:
 
 ```bash
-curl -i -c cookies.txt -X POST http://localhost:8080/api/auth/register \
+curl -i -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"aakash@example.com","password":"Strong123","fullName":"Aakash","phoneNumber":"9999999999"}'
 
-curl -i -c cookies.txt -X POST http://localhost:8080/api/auth/login \
+curl -i -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"aakash@example.com","password":"Strong123","rememberMe":true}'
 
-curl -b cookies.txt http://localhost:8080/api/transactions
+curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://localhost:8080/api/transactions
 ```
 
-Logout with the session cookie:
+Logout with the JWT:
 
 ```bash
-curl -i -b cookies.txt -X POST http://localhost:8080/api/auth/logout
+curl -i -X POST http://localhost:8080/api/auth/logout \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 On Render, replace the host with your deployed URL:
 
 ```bash
-curl -i -c cookies.txt -X POST https://YOUR-APP.onrender.com/api/auth/login \
+curl -i -X POST https://YOUR-APP.onrender.com/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"aakash@example.com","password":"Strong123","rememberMe":true}'
 
-curl -i -b cookies.txt -X POST https://YOUR-APP.onrender.com/api/auth/logout
+curl -i -X POST https://YOUR-APP.onrender.com/api/auth/logout \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-This backend does not issue or validate JWT bearer tokens. An `Authorization: Bearer ...` header will only work after adding a JWT filter/token service. For the current implementation, the authenticated credential is the `JSESSIONID` cookie.
+The login response contains `tokenType`, `accessToken`, and `expiresAt`. In Swagger UI, click **Authorize** and enter `Bearer YOUR_ACCESS_TOKEN`.
 
 Security notes:
 
-- Cookies are HttpOnly and configurable with `COOKIE_SECURE` and `COOKIE_SAME_SITE`.
-- Session fixation protection changes the session id after authentication.
-- Logout invalidates the server session and deletes the session cookie.
+- Protected API routes require `Authorization: Bearer <token>`.
+- JWT expiry is configurable with `JWT_EXPIRATION_SECONDS` and `JWT_REMEMBER_ME_EXPIRATION_SECONDS`.
+- Logout records `last_logout_at`; JWTs remain stateless until expiration unless a token blacklist is added.
 - Accounts are locked for 15 minutes after 5 failed login attempts.
 - Roles are ready through `UserRole` and `ROLE_USER` authorities.
 - CSRF is currently disabled because this is a JSON API commonly tested from Swagger/Postman and intended for same-origin or explicitly trusted frontend origins. For a browser frontend in production, enable CSRF with a cookie/token strategy such as `CookieCsrfTokenRepository` and send the token in an `X-XSRF-TOKEN` header for unsafe methods.
@@ -245,9 +247,9 @@ Deployment screenshots placeholders:
 | `DATABASE_PLATFORM` | `org.hibernate.dialect.H2Dialect` | Local dialect override |
 | `DDL_AUTO` | `update` | Hibernate schema mode |
 | `H2_CONSOLE_ENABLED` | `true` | Disable in production |
-| `SESSION_TIMEOUT` | `30m` | Default session timeout |
-| `COOKIE_SECURE` | `false`, `true` in prod | Send cookies only over HTTPS |
-| `COOKIE_SAME_SITE` | `lax`, `none` in prod | Cross-site cookie behavior |
+| `JWT_SECRET` | dev-only secret | Secret used to sign JWTs; set a strong value in production |
+| `JWT_EXPIRATION_SECONDS` | `1800` | Standard JWT lifetime |
+| `JWT_REMEMBER_ME_EXPIRATION_SECONDS` | `604800` | Remember-me JWT lifetime |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated frontend origins |
 | `SHOW_SQL` | `false` | SQL logging |
 

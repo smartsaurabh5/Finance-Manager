@@ -15,13 +15,10 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
+import org.springframework.security.web.authentication.logout.LogoutFilter;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
-import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
-import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -35,15 +32,18 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final SessionActivityFilter sessionActivityFilter;
+    private final com.finance.manager.security.JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthService authService;
     private final List<String> allowedOrigins;
 
     public SecurityConfig(CustomUserDetailsService userDetailsService,
                           SessionActivityFilter sessionActivityFilter,
+                          com.finance.manager.security.JwtAuthenticationFilter jwtAuthenticationFilter,
                           AuthService authService,
                           @Value("${app.cors.allowed-origins:http://localhost:3000}") List<String> allowedOrigins) {
         this.userDetailsService = userDetailsService;
         this.sessionActivityFilter = sessionActivityFilter;
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.authService = authService;
         this.allowedOrigins = allowedOrigins;
     }
@@ -54,34 +54,31 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/api/auth/register", "/api/auth/login").permitAll()
+                .requestMatchers("/", "/health", "/api/health", "/api/auth/register", "/api/auth/login").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/h2-console/**").permitAll()
                 .requestMatchers("/swagger-ui.html").permitAll()
+                .requestMatchers("/actuator/health/**", "/actuator/info", "/error").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                .sessionFixation(sessionFixation -> sessionFixation.changeSessionId())
-                .invalidSessionStrategy((request, response) -> {
-                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"message\":\"Session expired or invalid\"}");
-                })
-                .maximumSessions(3)
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .logout(logout -> logout
                 .logoutUrl("/api/auth/logout")
-                .invalidateHttpSession(true)
                 .clearAuthentication(true)
-                .deleteCookies("JSESSIONID")
                 .addLogoutHandler(logoutHandler())
                 .logoutSuccessHandler(logoutSuccessHandler())
                 .permitAll()
             )
             .exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"message\":\"Unauthorized: missing or invalid JWT token\"}");
+                })
             )
-            .addFilterAfter(sessionActivityFilter, SecurityContextHolderFilter.class)
+            .addFilterBefore(jwtAuthenticationFilter, LogoutFilter.class)
+            .addFilterAfter(sessionActivityFilter, com.finance.manager.security.JwtAuthenticationFilter.class)
             .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
 
         return http.build();
@@ -111,11 +108,6 @@ public class SecurityConfig {
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder);
         return new ProviderManager(authProvider);
-    }
-
-    @Bean
-    public SessionAuthenticationStrategy sessionAuthenticationStrategy() {
-        return new ChangeSessionIdAuthenticationStrategy();
     }
 
     @Bean

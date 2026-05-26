@@ -52,6 +52,10 @@ management:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  jwt:
+    secret: ${JWT_SECRET:change-this-dev-secret-change-this-dev-secret}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:1800}
+    remember-me-expiration-seconds: ${JWT_REMEMBER_ME_EXPIRATION_SECONDS:604800}
 
 springdoc:
   api-docs:

@@ -1,13 +1,13 @@
 package com.finance.manager.controller;
 
 import com.finance.manager.dto.LoginRequest;
+import com.finance.manager.dto.LoginResponse;
 import com.finance.manager.dto.RegisterRequest;
 import com.finance.manager.entity.User;
 import com.finance.manager.exception.AccountLockedException;
+import com.finance.manager.security.CustomUserDetails;
+import com.finance.manager.security.JwtService;
 import com.finance.manager.service.AuthService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,10 +16,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,13 +29,12 @@ import java.util.Map;
 public class AuthController {
     private final AuthService authService;
     private final AuthenticationManager authenticationManager;
-    private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
+    private final JwtService jwtService;
 
-    public AuthController(AuthService authService, AuthenticationManager authenticationManager,
-                          SessionAuthenticationStrategy sessionAuthenticationStrategy) {
+    public AuthController(AuthService authService, AuthenticationManager authenticationManager, JwtService jwtService) {
         this.authService = authService;
         this.authenticationManager = authenticationManager;
-        this.sessionAuthenticationStrategy = sessionAuthenticationStrategy;
+        this.jwtService = jwtService;
     }
 
     @PostMapping("/register")
@@ -49,9 +45,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest request,
-                                                     HttpServletRequest httpRequest,
-                                                     HttpServletResponse httpResponse) {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         UsernamePasswordAuthenticationToken authenticationToken =
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword());
         Authentication authentication;
@@ -64,28 +58,20 @@ public class AuthController {
             throw new AccountLockedException("Account is temporarily locked because of too many failed login attempts");
         }
 
-        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
-        securityContext.setAuthentication(authentication);
-        SecurityContextHolder.setContext(securityContext);
-
-        sessionAuthenticationStrategy.onAuthentication(authentication, httpRequest, httpResponse);
-        HttpSession session = httpRequest.getSession(true);
-        if (Boolean.TRUE.equals(request.getRememberMe())) {
-            session.setMaxInactiveInterval(7 * 24 * 60 * 60);
-        }
-        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
         authService.recordLoginSuccess(request.getUsername());
+        String token = jwtService.generateToken((CustomUserDetails) authentication.getPrincipal(),
+                Boolean.TRUE.equals(request.getRememberMe()));
+        long expiresAt = java.time.Instant.now().getEpochSecond()
+                + jwtService.getExpiresInSeconds(Boolean.TRUE.equals(request.getRememberMe()));
 
-        return ResponseEntity.ok(Map.of("message", "Login successful"));
+        return ResponseEntity.ok(new LoginResponse("Login successful", "Bearer", token, expiresAt));
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout(HttpServletRequest request, HttpServletResponse response) {
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            session.invalidate();
+    public ResponseEntity<Map<String, String>> logout(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails != null) {
+            authService.recordLogout(userDetails.getUser());
         }
-        SecurityContextHolder.clearContext();
         return ResponseEntity.ok(Map.of("message", "Logout successful"));
     }
 }
