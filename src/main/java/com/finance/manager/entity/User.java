@@ -11,31 +11,36 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "username", nullable = false, unique = true, length = 255)
     private String username;
 
-    @Column(nullable = false)
+    @Column(name = "password", nullable = false, length = 255)
     private String password;
 
-    @Column(nullable = false)
+    @Column(name = "full_name", nullable = false, length = 255)
     private String fullName;
 
+    @Column(name = "phone_number", length = 50)
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "role", nullable = false, length = 30)
     private UserRole role = UserRole.USER;
 
-    @Column(nullable = false)
+    @Column(name = "failed_login_attempts", nullable = false, columnDefinition = "integer default 0")
     private int failedLoginAttempts = 0;
 
+    @Column(name = "locked_until", columnDefinition = "timestamp")
     private LocalDateTime lockedUntil;
 
+    @Column(name = "last_login_at", columnDefinition = "timestamp")
     private LocalDateTime lastLoginAt;
 
+    @Column(name = "last_activity_at", columnDefinition = "timestamp")
     private LocalDateTime lastActivityAt;
 
     @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "timestamp")
     private LocalDateTime createdAt;
 
     public User() {
@@ -191,6 +196,26 @@ public class User {
             return this;
         }
 
+        public User.UserBuilder failedLoginAttempts(final int failedLoginAttempts) {
+            this.failedLoginAttempts = failedLoginAttempts;
+            return this;
+        }
+
+        public User.UserBuilder lockedUntil(final LocalDateTime lockedUntil) {
+            this.lockedUntil = lockedUntil;
+            return this;
+        }
+
+        public User.UserBuilder lastLoginAt(final LocalDateTime lastLoginAt) {
+            this.lastLoginAt = lastLoginAt;
+            return this;
+        }
+
+        public User.UserBuilder lastActivityAt(final LocalDateTime lastActivityAt) {
+            this.lastActivityAt = lastActivityAt;
+            return this;
+        }
+
         public User build() {
             User user = new User(this.id, this.username, this.password, this.fullName, this.phoneNumber, this.createdAt);
             user.setRole(this.role);
@@ -213,5 +238,16 @@ public class User {
         this.fullName = fullName;
         this.phoneNumber = phoneNumber;
         this.createdAt = createdAt;
+    }
+
+    @PrePersist
+    @PreUpdate
+    void applyDefaults() {
+        if (role == null) {
+            role = UserRole.USER;
+        }
+        if (failedLoginAttempts < 0) {
+            failedLoginAttempts = 0;
+        }
     }
 }

@@ -80,6 +80,21 @@ Security notes:
 - Roles are ready through `UserRole` and `ROLE_USER` authorities.
 - CSRF is currently disabled because this is a JSON API commonly tested from Swagger/Postman and intended for same-origin or explicitly trusted frontend origins. For a browser frontend in production, enable CSRF with a cookie/token strategy such as `CookieCsrfTokenRepository` and send the token in an `X-XSRF-TOKEN` header for unsafe methods.
 
+## Database Schema Notes
+
+The `users` table must contain these account-lockout columns:
+
+```sql
+failed_login_attempts integer not null default 0,
+locked_until timestamp null,
+last_login_at timestamp null,
+last_activity_at timestamp null
+```
+
+JPA writes these fields by column name, so values should not shift when Hibernate performs inserts or updates. Shifted values usually come from a stale table shape combined with positional SQL such as `INSERT INTO users VALUES (...)`. Always include column names in manual SQL inserts.
+
+For PostgreSQL deployments with existing bad/null lockout data, run `src/main/resources/db/manual/repair-users-table-postgres.sql` after taking a backup. Production defaults to `DDL_AUTO=validate`, so the app fails fast if the table does not match the entity. Use explicit migration scripts for future table changes.
+
 ## Main API Endpoints
 
 - `POST /api/auth/register`
