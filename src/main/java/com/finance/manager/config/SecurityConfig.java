@@ -17,8 +17,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
-import org.springframework.security.web.authentication.logout.LogoutFilter;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -32,18 +32,15 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final SessionActivityFilter sessionActivityFilter;
-    private final com.finance.manager.security.JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthService authService;
     private final List<String> allowedOrigins;
 
     public SecurityConfig(CustomUserDetailsService userDetailsService,
                           SessionActivityFilter sessionActivityFilter,
-                          com.finance.manager.security.JwtAuthenticationFilter jwtAuthenticationFilter,
                           AuthService authService,
                           @Value("${app.cors.allowed-origins:http://localhost:3000}") List<String> allowedOrigins) {
         this.userDetailsService = userDetailsService;
         this.sessionActivityFilter = sessionActivityFilter;
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.authService = authService;
         this.allowedOrigins = allowedOrigins;
     }
@@ -61,7 +58,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
             )
             .logout(logout -> logout
                 .logoutUrl("/api/auth/logout")
@@ -74,11 +71,10 @@ public class SecurityConfig {
                 .authenticationEntryPoint((request, response, authException) -> {
                     response.setStatus(HttpStatus.UNAUTHORIZED.value());
                     response.setContentType("application/json");
-                    response.getWriter().write("{\"message\":\"Unauthorized: missing or invalid JWT token\"}");
+                    response.getWriter().write("{\"message\":\"Session expired or invalid\"}");
                 })
             )
-            .addFilterBefore(jwtAuthenticationFilter, LogoutFilter.class)
-            .addFilterAfter(sessionActivityFilter, com.finance.manager.security.JwtAuthenticationFilter.class)
+            .addFilterAfter(sessionActivityFilter, UsernamePasswordAuthenticationFilter.class)
             .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
 
         return http.build();

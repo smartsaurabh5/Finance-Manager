@@ -4,7 +4,6 @@ import com.finance.manager.dto.LoginRequest;
 import com.finance.manager.dto.RegisterRequest;
 import com.finance.manager.entity.User;
 import com.finance.manager.security.CustomUserDetails;
-import com.finance.manager.security.JwtService;
 import com.finance.manager.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,9 +11,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
 import java.util.Map;
 
@@ -29,8 +30,6 @@ class AuthControllerTest {
     AuthService authService;
     @Mock
     AuthenticationManager authenticationManager;
-    @Mock
-    JwtService jwtService;
     @Mock
     Authentication authentication;
     @InjectMocks
@@ -50,26 +49,19 @@ class AuthControllerTest {
     }
 
     @Test
-    void loginReturnsJwtToken() {
+    void loginReturnsSessionSuccessMessage() {
         LoginRequest request = new LoginRequest();
         request.setUsername("aakash@example.com");
         request.setPassword("Strong123");
-        request.setRememberMe(true);
-        User user = new User();
-        user.setUsername("aakash@example.com");
-        user.setPassword("encoded");
-        user.setFullName("Aakash");
-        CustomUserDetails userDetails = new CustomUserDetails(user);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(userDetails);
-        when(jwtService.generateToken(userDetails, true)).thenReturn("jwt-token");
-        when(jwtService.getExpiresInSeconds(true)).thenReturn(604800L);
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
 
-        var response = authController.login(request);
+        var response = authController.login(request, httpRequest);
 
-        assertThat(response.getBody().getMessage()).isEqualTo("Login successful");
-        assertThat(response.getBody().getTokenType()).isEqualTo("Bearer");
-        assertThat(response.getBody().getAccessToken()).isEqualTo("jwt-token");
+        assertThat(response.getBody()).isEqualTo(Map.of("message", "Login successful"));
+        assertThat(httpRequest.getSession().getAttribute(
+                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY
+        )).isNotNull();
         verify(authService).recordLoginSuccess("aakash@example.com");
     }
 

@@ -29,9 +29,9 @@ public class CategoryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CategoryResponse>> getCategories(
+    public ResponseEntity<Map<String, List<CategoryResponse>>> getCategories(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(categoryService.getAllCategories(userDetails.getUser()));
+        return ResponseEntity.ok(Map.of("categories", categoryService.getAllCategories(userDetails.getUser())));
     }
 
     @PostMapping

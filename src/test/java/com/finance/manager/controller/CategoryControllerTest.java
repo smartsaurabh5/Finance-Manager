@@ -48,7 +48,7 @@ class CategoryControllerTest {
 
         var response = categoryController.getCategories(userDetails);
 
-        assertThat(response.getBody()).isEqualTo(categories);
+        assertThat(response.getBody()).isEqualTo(Map.of("categories", categories));
     }
 
     @Test

@@ -1,13 +1,12 @@
 package com.finance.manager.controller;
 
 import com.finance.manager.dto.LoginRequest;
-import com.finance.manager.dto.LoginResponse;
 import com.finance.manager.dto.RegisterRequest;
 import com.finance.manager.entity.User;
 import com.finance.manager.exception.AccountLockedException;
 import com.finance.manager.security.CustomUserDetails;
-import com.finance.manager.security.JwtService;
 import com.finance.manager.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +16,9 @@ import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,12 +31,10 @@ import java.util.Map;
 public class AuthController {
     private final AuthService authService;
     private final AuthenticationManager authenticationManager;
-    private final JwtService jwtService;
 
-    public AuthController(AuthService authService, AuthenticationManager authenticationManager, JwtService jwtService) {
+    public AuthController(AuthService authService, AuthenticationManager authenticationManager) {
         this.authService = authService;
         this.authenticationManager = authenticationManager;
-        this.jwtService = jwtService;
     }
 
     @PostMapping("/register")
@@ -45,7 +45,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest request,
+                                                     HttpServletRequest httpRequest) {
         UsernamePasswordAuthenticationToken authenticationToken =
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword());
         Authentication authentication;
@@ -59,12 +60,14 @@ public class AuthController {
         }
 
         authService.recordLoginSuccess(request.getUsername());
-        String token = jwtService.generateToken((CustomUserDetails) authentication.getPrincipal(),
-                Boolean.TRUE.equals(request.getRememberMe()));
-        long expiresAt = java.time.Instant.now().getEpochSecond()
-                + jwtService.getExpiresInSeconds(Boolean.TRUE.equals(request.getRememberMe()));
-
-        return ResponseEntity.ok(new LoginResponse("Login successful", "Bearer", token, expiresAt));
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+        securityContext.setAuthentication(authentication);
+        SecurityContextHolder.setContext(securityContext);
+        httpRequest.getSession(true).setAttribute(
+                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                securityContext
+        );
+        return ResponseEntity.ok(Map.of("message", "Login successful"));
     }
 
     @PostMapping("/logout")

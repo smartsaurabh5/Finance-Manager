@@ -1,10 +1,10 @@
 # Personal Finance Manager Backend
 
-Production-ready, beginner-friendly REST API for managing personal finances with Java 17, Spring Boot 3.2.5, Spring Security JWT authentication, JPA, H2 for local development, and PostgreSQL for deployment.
+Production-ready, beginner-friendly REST API for managing personal finances with Java 17, Spring Boot 3.2.5, Spring Security session-cookie authentication, JPA, H2 for local development, and PostgreSQL for deployment.
 
 ## Features
 
-- JWT Bearer authentication with BCrypt, stateless protected APIs, activity tracking, remember-me token duration, and account lockout after repeated failed logins.
+- Session-cookie authentication with BCrypt, protected APIs, activity tracking, logout/session invalidation, and account lockout after repeated failed logins.
 - User-scoped categories, transactions, savings goals, reports, dashboard summary, recent transactions, and monthly budgets.
 - Validation on request DTOs, global exception handling, consistent error response shape, duplicate category conflict handling, and protection against deleting categories used by transactions.
 - Transaction filtering, pagination, sorting, and future-date prevention.
@@ -54,7 +54,7 @@ H2 defaults:
 
 1. Register with `POST /api/auth/register`.
 2. Login with `POST /api/auth/login`.
-3. Use the returned JWT access token on protected APIs.
+3. Reuse the `JSESSIONID` cookie returned by login on protected APIs.
 4. Logout with `POST /api/auth/logout`.
 
 Example:
@@ -65,37 +65,38 @@ curl -i -X POST http://localhost:8080/api/auth/register \
   -d '{"username":"aakash@example.com","password":"Strong123","fullName":"Aakash","phoneNumber":"9999999999"}'
 
 curl -i -X POST http://localhost:8080/api/auth/login \
+  -c cookies.txt \
   -H "Content-Type: application/json" \
-  -d '{"username":"aakash@example.com","password":"Strong123","rememberMe":true}'
+  -d '{"username":"aakash@example.com","password":"Strong123"}'
 
-curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://localhost:8080/api/transactions
+curl -b cookies.txt http://localhost:8080/api/transactions
 ```
 
-Logout with the JWT:
+Logout with the session cookie:
 
 ```bash
 curl -i -X POST http://localhost:8080/api/auth/logout \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+  -b cookies.txt
 ```
 
 On Render, replace the host with your deployed URL:
 
 ```bash
 curl -i -X POST https://YOUR-APP.onrender.com/api/auth/login \
+  -c cookies.txt \
   -H "Content-Type: application/json" \
-  -d '{"username":"aakash@example.com","password":"Strong123","rememberMe":true}'
+  -d '{"username":"aakash@example.com","password":"Strong123"}'
 
 curl -i -X POST https://YOUR-APP.onrender.com/api/auth/logout \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+  -b cookies.txt
 ```
 
-The login response contains `tokenType`, `accessToken`, and `expiresAt`. In Swagger UI, click **Authorize** and enter `Bearer YOUR_ACCESS_TOKEN`.
+The login response is `{ "message": "Login successful" }`. The server sets a session cookie for later requests.
 
 Security notes:
 
-- Protected API routes require `Authorization: Bearer <token>`.
-- JWT expiry is configurable with `JWT_EXPIRATION_SECONDS` and `JWT_REMEMBER_ME_EXPIRATION_SECONDS`.
-- Logout records `last_logout_at`; JWTs remain stateless until expiration unless a token blacklist is added.
+- Protected API routes require a valid `JSESSIONID` session cookie.
+- Logout records `last_logout_at` and invalidates the session.
 - Accounts are locked for 15 minutes after 5 failed login attempts.
 - Roles are ready through `UserRole` and `ROLE_USER` authorities.
 - CSRF is currently disabled because this is a JSON API commonly tested from Swagger/Postman and intended for same-origin or explicitly trusted frontend origins. For a browser frontend in production, enable CSRF with a cookie/token strategy such as `CookieCsrfTokenRepository` and send the token in an `X-XSRF-TOKEN` header for unsafe methods.
@@ -247,9 +248,6 @@ Deployment screenshots placeholders:
 | `DATABASE_PLATFORM` | `org.hibernate.dialect.H2Dialect` | Local dialect override |
 | `DDL_AUTO` | `update` | Hibernate schema mode |
 | `H2_CONSOLE_ENABLED` | `true` | Disable in production |
-| `JWT_SECRET` | dev-only secret | Secret used to sign JWTs; set a strong value in production |
-| `JWT_EXPIRATION_SECONDS` | `1800` | Standard JWT lifetime |
-| `JWT_REMEMBER_ME_EXPIRATION_SECONDS` | `604800` | Remember-me JWT lifetime |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated frontend origins |
 | `SHOW_SQL` | `false` | SQL logging |
 

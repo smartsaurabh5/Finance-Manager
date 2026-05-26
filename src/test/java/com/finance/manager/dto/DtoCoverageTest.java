@@ -91,10 +91,8 @@ class DtoCoverageTest {
         LoginRequest login = new LoginRequest();
         login.setUsername("aakash@example.com");
         login.setPassword("Strong123");
-        login.setRememberMe(true);
         assertThat(login.getUsername()).isEqualTo("aakash@example.com");
         assertThat(login.getPassword()).isEqualTo("Strong123");
-        assertThat(login.getRememberMe()).isTrue();
 
         RegisterRequest register = new RegisterRequest();
         register.setUsername("aakash@example.com");

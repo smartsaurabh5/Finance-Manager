@@ -2,7 +2,6 @@ package com.finance.manager.config;
 
 import com.finance.manager.security.CustomUserDetailsService;
 import com.finance.manager.security.CustomUserDetails;
-import com.finance.manager.security.JwtAuthenticationFilter;
 import com.finance.manager.security.SessionActivityFilter;
 import com.finance.manager.service.AuthService;
 import com.finance.manager.entity.User;
@@ -24,7 +23,6 @@ class SecurityConfigTest {
         SecurityConfig securityConfig = new SecurityConfig(
                 mock(CustomUserDetailsService.class),
                 mock(SessionActivityFilter.class),
-                mock(JwtAuthenticationFilter.class),
                 mock(AuthService.class),
                 List.of("https://finance.example.com")
         );
@@ -47,7 +45,6 @@ class SecurityConfigTest {
         SecurityConfig securityConfig = new SecurityConfig(
                 mock(CustomUserDetailsService.class),
                 mock(SessionActivityFilter.class),
-                mock(JwtAuthenticationFilter.class),
                 authService,
                 List.of("https://finance.example.com")
         );
